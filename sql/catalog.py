@@ -28,69 +28,25 @@ class ParamType(Enum):
 
 # ===== ONE PLACE TO ADD QUERIES =====
 
-QUERIES_CATALOG: Dict[str, Dict] = {
-    # ===== PHASE 1: Independent Queries =====
-    # These have no dependencies and can run in parallel
-    
+QUERIES_CATALOG = {
     "sticker_offered": {
-        "sql": QUERY_STICKER_OFFERED,
-        "params": [ParamType.START_DATE, ParamType.END_DATE],
+        "sql":          QUERY_STICKER_OFFERED,
+        "type":         QueryType.JDBC,
+        "params":       [ParamType.START_DATE, ParamType.END_DATE],
         "dependencies": [],
-        "description": "Customers offered stickers, comeback rates",
-        "owner": "analytics-team",  # Optional: for code review routing
-        "added_date": "2025-11-01",
-        "tags": ["core_metric", "sticker_analysis"],
+        "description":  "Customers offered stickers, comeback rates",
     },
-    
     "customer_transactions": {
-        "sql": QUERY_CUSTOMER_TRANSACTIONS,
-        "params": [ParamType.START_DATE, ParamType.END_DATE],
+        "sql":          QUERY_CUSTOMER_TRANSACTIONS,
+        "type":         QueryType.JDBC,
+        "params":       [ParamType.START_DATE, ParamType.END_DATE],
         "dependencies": [],
-        "description": "Transaction summary per customer",
-        "owner": "analytics-team",
-        "added_date": "2025-11-01",
-        "tags": ["base_metric"],
-    },
-    
-    "write_off_summary": {
-        "sql": QUERY_WRITE_OFF_SUMMARY,
-        "params": [ParamType.WRITE_OFF_WINDOW],
-        "dependencies": [],
-        "description": "Write-off summary for last N months",
-        "owner": "finance-team",
-        "added_date": "2025-11-15",
-        "tags": ["financial"],
+        "description":  "Transaction summary per customer",
     },
     
     # ===== PHASE 2: First-Level Dependencies =====
     # These depend on phase 1 queries
-    
-    "customer_segments": {
-        "sql": QUERY_CUSTOMER_SEGMENTS,
-        "params": [],
-        "dependencies": ["customer_transactions", "write_off_summary", "churn_risk"],
-        "description": "Segment customers (LOYAL/AT_RISK/NEW/REGULAR)",
-        "owner": "analytics-team",
-        "added_date": "2025-11-20",
-        "tags": ["segmentation", "downstream"],
-    },
-    
-    # To add a new query:
-    # 1. Add SQL to sql_queries.py
-    # 2. Import it above
-    # 3. Add entry here
-    # 4. Call validate_catalog()
-    #
-    # Example:
-    # "my_new_query": {
-    #     "sql": QUERY_MY_NEW_QUERY,
-    #     "params": [ParamType.START_DATE],
-    #     "dependencies": ["some_other_query"],
-    #     "description": "What does this query do?",
-    #     "owner": "your-team",
-    #     "added_date": "2025-12-01",
-    #     "tags": ["relevant_tag"],
-    # },
+
 }
 
 

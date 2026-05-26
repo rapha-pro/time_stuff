@@ -3,8 +3,8 @@
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from connections        import spark, OUTPUT_PATH
-from enums              import PeriodType, ParamType
+from connections        import spark, OUTPUT_PATH, jdbc
+from enums              import PeriodType, ParamType, QueryType
 from reporting_config   import (
     REPORTING_PERIODS,
     WRITE_OFF_WINDOW,
@@ -36,6 +36,33 @@ def build_params(query_name: str, dates: DateRange) -> dict:
     return {p.value: values[p] for p in needed}
 
 
+def run_jdbc_query(query_name: str, sql: str) -> None:
+    """Load data from external database into a temp view."""
+    df = (
+        spark.read
+        .jdbc(url=JDBC_URL, table=sql, properties=CONNECTION_PROPERTIES)
+        .cache()
+    )
+    df.createOrReplaceTempView(query_name)
+
+
+def run_spark_sql(sql: str) -> None:
+    """Run SQL against existing temp views."""
+    spark.sql(sql)
+
+
+def run_query(query_name: str, query_config: dict, params: dict) -> None:
+    """Dispatch to the right execution method based on query type."""
+    sql = query_config["sql"].format(**params)
+
+    if query_config["type"] == QueryType.JDBC:
+        run_jdbc_query(query_name, sql)
+    elif query_config["type"] == QueryType.SPARK_SQL:
+        run_spark_sql(sql)
+    else:
+        raise ValueError(f"Unknown query type: {query_config['type']}")
+
+
 def run_all_queries(dates: DateRange) -> None:
     """Run every query in the catalog in dependency order."""
     phases = get_execution_phases()
@@ -43,10 +70,10 @@ def run_all_queries(dates: DateRange) -> None:
     for phase_num in sorted(phases.keys()):
         print(f"  Phase {phase_num}:")
         for query_name in phases[phase_num]:
+            config = QUERIES_CATALOG[query_name]
             params = build_params(query_name, dates)
-            sql    = QUERIES_CATALOG[query_name]["sql"].format(**params)
-            print(f"    running {query_name}")
-            spark.sql(sql)
+            print(f"    running {query_name} ({config['type'].value})")
+            run_query(query_name, config, params)
 
 
 def iter_period_starts(period_type: PeriodType, range_start: date, range_end: date):

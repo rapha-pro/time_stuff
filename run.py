@@ -3,7 +3,7 @@
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from connections        import spark, OUTPUT_PATH, jdbc
+from connections        import spark, OUTPUT_PATH, CONNECTIONS
 from enums              import PeriodType, ParamType, QueryType
 from reporting_config   import (
     REPORTING_PERIODS,
@@ -36,31 +36,32 @@ def build_params(query_name: str, dates: DateRange) -> dict:
     return {p.value: values[p] for p in needed}
 
 
-def run_jdbc_query(query_name: str, sql: str) -> None:
-    """Load data from external database into a temp view."""
+def run_jdbc_query(query_name: str, sql: str, connection_name: str) -> None:
+    """Load data from external database into a temp view named query_name."""
+    conn = CONNECTIONS[connection_name]
     df = (
         spark.read
-        .jdbc(url=JDBC_URL, table=sql, properties=CONNECTION_PROPERTIES)
+        .jdbc(url=conn["url"], table=sql, properties=conn["properties"])
         .cache()
     )
     df.createOrReplaceTempView(query_name)
 
 
 def run_spark_sql(sql: str) -> None:
-    """Run SQL against existing temp views."""
     spark.sql(sql)
 
 
 def run_query(query_name: str, query_config: dict, params: dict) -> None:
-    """Dispatch to the right execution method based on query type."""
     sql = query_config["sql"].format(**params)
 
     if query_config["type"] == QueryType.JDBC:
-        run_jdbc_query(query_name, sql)
+        connection_name = query_config.get("connection", DEFAULT_CONNECTION)
+        run_jdbc_query(query_name, sql, connection_name)
     elif query_config["type"] == QueryType.SPARK_SQL:
         run_spark_sql(sql)
     else:
         raise ValueError(f"Unknown query type: {query_config['type']}")
+
 
 
 def run_all_queries(dates: DateRange) -> None:

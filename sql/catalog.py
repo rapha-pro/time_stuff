@@ -29,24 +29,22 @@ class ParamType(Enum):
 # ===== ONE PLACE TO ADD QUERIES =====
 
 QUERIES_CATALOG = {
-    "sticker_offered": {
-        "sql":          QUERY_STICKER_OFFERED,
-        "type":         QueryType.JDBC,
-        "params":       [ParamType.START_DATE, ParamType.END_DATE],
-        "dependencies": [],
-        "description":  "Customers offered stickers, comeback rates",
-    },
     "customer_transactions": {
         "sql":          QUERY_CUSTOMER_TRANSACTIONS,
         "type":         QueryType.JDBC,
+        "connection":   "main",                    # which DB to hit
         "params":       [ParamType.START_DATE, ParamType.END_DATE],
         "dependencies": [],
         "description":  "Transaction summary per customer",
     },
-    
-    # ===== PHASE 2: First-Level Dependencies =====
-    # These depend on phase 1 queries
-
+    "customer_segments": {
+        "sql":          QUERY_CUSTOMER_SEGMENTS,
+        "type":         QueryType.SPARK_SQL,
+        # no "connection" field — runs against Spark temp views, not external DB
+        "params":       [],
+        "dependencies": ["customer_transactions", "write_off_summary"],
+        "description":  "Segment customers",
+    },
 }
 
 
@@ -69,6 +67,17 @@ def validate_catalog() -> bool:
                     f"Query '{query_name}' depends on '{dep}' "
                     f"which is not in QUERIES_CATALOG"
                 )
+
+
+        # connection name check (only for JDBC queries)
+        if config.get("type") == QueryType.JDBC:
+            conn_name = config.get("connection")
+            if conn_name and conn_name not in CONNECTIONS:
+                errors.append(
+                    f"'{name}' uses connection '{conn_name}' which is not in CONNECTIONS"
+                )
+
+        
     
     # Check for circular dependencies
     for query_name in QUERIES_CATALOG:

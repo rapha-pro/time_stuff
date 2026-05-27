@@ -103,3 +103,47 @@ def get_look_back_dates(period_start: date, period_type: PeriodType) -> DateRang
     end   = start + relativedelta(months=duration_months) - relativedelta(days=1)
 
     return DateRange(start=start, end=end)
+
+
+
+def previous_month() -> DateRange:
+    """First and last day of the most recently completed month."""
+    today = date.today()
+    start = today.replace(day=1) - relativedelta(months=1)
+    end   = today.replace(day=1) - relativedelta(days=1)
+    return DateRange(start=start, end=end)
+
+
+def previous_quarter() -> DateRange:
+    """First and last day of the most recently completed 3-month quarter."""
+    today = date.today()
+    start = today.replace(day=1) - relativedelta(months=3)
+    end   = today.replace(day=1) - relativedelta(days=1)
+    return DateRange(start=start, end=end)
+
+
+def previous_fiscal_year() -> DateRange:
+    """First and last day of the most recently completed fiscal year (Nov to Oct)."""
+    today = date.today()
+    # If we're in November or December, the FY that just ended is last calendar year's Nov
+    # If we're Jan through October, the FY that just ended is the previous year's Nov to this year's Oct
+    if today.month >= FISCAL_YEAR_START_MONTH:
+        # We're in Nov/Dec of year Y, FY that just ended is Nov(Y-1) to Oct(Y)
+        start = date(today.year - 1, FISCAL_YEAR_START_MONTH, 1)
+    else:
+        # We're in Jan-Oct of year Y, FY that just ended is Nov(Y-2) to Oct(Y-1)
+        start = date(today.year - 2, FISCAL_YEAR_START_MONTH, 1)
+    end = start + relativedelta(months=ANNUAL_DURATION) - relativedelta(days=1)
+    return DateRange(start=start, end=end)
+
+
+def get_previous_period(period_type: PeriodType) -> DateRange:
+    """Return the most recently completed period for the given type."""
+    if period_type == PeriodType.MONTHLY:
+        return previous_month()
+    elif period_type == PeriodType.QUARTERLY:
+        return previous_quarter()
+    elif period_type == PeriodType.ANNUAL:
+        return previous_fiscal_year()
+    else:
+        raise ValueError(f"Unknown period type: {period_type}")

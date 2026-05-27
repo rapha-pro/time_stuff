@@ -18,6 +18,13 @@ CONNECTION_PROPERTIES = {
     "fetchsize": "1000",
 }
 
+
+OUTPUT_PATHS = {
+    "monthly":   "/delta/stickers_analysis/monthly",
+    "quarterly": "/delta/stickers_analysis/quarterly",
+    "annual":    "/delta/stickers_analysis/annual",
+}
+
 # Storage and misc
 STORAGE_NAME = "your-storage"
 TEMP_DIR     = "/tmp/stickers_analysis"

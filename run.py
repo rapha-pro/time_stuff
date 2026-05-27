@@ -2,6 +2,7 @@
 
 from datetime import date
 from dateutil.relativedelta import relativedelta
+from pyspark.sql.utils import AnalysisException
 
 from connections        import spark, OUTPUT_PATH, CONNECTIONS
 from enums              import PeriodType, ParamType, QueryType
@@ -23,6 +24,32 @@ from catalog            import (
     validate_catalog,
     print_execution_plan,
 )
+
+
+
+
+
+dbutils.widgets.dropdown(
+    name="period_type",
+    defaultValue="monthly",
+    choices=["monthly", "quarterly", "annual"],
+    label="Period Type",
+)
+
+
+
+def get_period_type_from_job() -> PeriodType:
+    period_type_str = dbutils.widgets.get("period_type")
+    return PeriodType(period_type_str)
+
+
+
+# Map each period type to its delta table name
+DELTA_TABLE_NAMES = {
+    PeriodType.MONTHLY:   "monthly_report",
+    PeriodType.QUARTERLY: "quarterly_report",
+    PeriodType.ANNUAL:    "annual_report",
+}
 
 
 def build_params(query_name: str, dates: DateRange) -> dict:
@@ -111,11 +138,36 @@ def iter_period_starts(period_type: PeriodType, range_start: date, range_end: da
         )
 
 
-def save_results(period_type: PeriodType, period_start: date) -> None:
-    """Save the final output table for this period."""
-    out = f"{OUTPUT_PATH}/{period_type.value}/{period_start}"
-    print(f"    saving to {out}")
-    spark.table("customer_segments").write.format("delta").mode("overwrite").save(out)
+
+def save_results(
+    period_type: PeriodType,
+    period: DateRange,
+    final_view: str = "customer_segments",
+) -> None:
+    table_name = DELTA_TABLE_NAMES[period_type]
+
+    # Build the new rows
+    result_df = (
+        spark.table(final_view)
+        .withColumn("period_start", lit(period.start))
+        .withColumn("period_end",   lit(period.end))
+    )
+
+    # If the table exists, drop any prior rows for this exact period before appending
+    try:
+        existing = load_delta_table(table_name)
+        kept = existing.filter(
+            (existing.period_start != lit(period.start)) |
+            (existing.period_end   != lit(period.end))
+        )
+        # Overwrite with the kept rows plus the new rows
+        combined = kept.unionByName(result_df, allowMissingColumns=True)
+        write_delta_table(combined, table_name)
+    except AnalysisException:
+        # Table doesn't exist yet — first run, just write
+        write_delta_table(result_df, table_name)
+
+    print(f"  Saved {result_df.count()} rows for {period.start} to {period.end} to {table_name}")
 
 
 def main() -> None:

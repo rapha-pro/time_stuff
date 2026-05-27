@@ -170,7 +170,7 @@ def save_results(
     print(f"  Saved {result_df.count()} rows for {period.start} to {period.end} to {table_name}")
 
 
-def main() -> None:
+def run_configured_reports() -> None:
     if not validate_catalog():
         raise RuntimeError("Fix catalog errors before running.")
 
@@ -187,6 +187,33 @@ def main() -> None:
             save_results(period_type, period_start)
 
     print("\nAll reports complete.")
+
+
+
+def main() -> None:
+    if not validate_catalog():
+        raise RuntimeError("Fix catalog errors before running.")
+
+    # Decide which period type to run
+    period_type = get_period_type_from_job()
+    print(f"Running {period_type.value} report")
+
+    # Compute the most recently completed period
+    period       = get_previous_period(period_type)
+    look_back    = get_look_back_dates(period.start, period_type)
+
+    print(f"  Period:    {period.start} to {period.end}")
+    print(f"  Look-back: {look_back.start} to {look_back.end}")
+
+    # Run all queries for this period
+    run_all_queries(look_back)
+
+    # Append to the correct delta table
+    save_results(period_type, period)
+
+    print("Report complete.")
+
+
 
 
 if __name__ == "__main__":

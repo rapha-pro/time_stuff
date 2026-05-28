@@ -31,3 +31,31 @@ def append_delta_table(df: DataFrame, name: str) -> None:
         .format("delta")
         .mode("append")
         .save(f"{DELTA_BASE_PATH}/{name}"))
+    
+
+
+
+def write_synapse_table(df: DataFrame, name: str, pre_actions: str = "") -> None:
+    writer = (df.write
+        .mode("append")
+        .format("com.databricks.spark.sqldw")
+        .option("url", url)
+        .option("useAzureMSI", "true")
+        .option("enableServicePrincipalAuth", "true")
+        .option("dbTable", name)
+        .option("tempDir", tempDir))
+    if pre_actions:
+        writer = writer.option("preActions", pre_actions)
+    writer.save()
+
+
+
+def load_synapse_table(name: str) -> DataFrame:
+    return (spark.read
+        .format("com.databricks.spark.sqldw")
+        .option("url", url)
+        .option("useAzureMSI", "true")
+        .option("enableServicePrincipalAuth", "true")
+        .option("dbTable", name)
+        .option("tempDir", tempDir)
+        .load())

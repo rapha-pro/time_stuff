@@ -38,6 +38,15 @@ dbutils.widgets.dropdown(
 
 
 
+# Map each period type to its delta table name
+DELTA_TABLE_NAMES = {
+    PeriodType.MONTHLY:   "monthly_report",
+    PeriodType.QUARTERLY: "quarterly_report",
+    PeriodType.ANNUAL:    "annual_report",
+}
+
+
+
 def get_period_type_from_job() -> PeriodType:
     period_type_str = dbutils.widgets.get("period_type")
     return PeriodType(period_type_str)
@@ -139,7 +148,26 @@ def iter_period_starts(period_type: PeriodType, range_start: date, range_end: da
 
 
 
-def save_results(
+def save_results(period_type: PeriodType, period: DateRange) -> None:
+    table_name = TABLE_NAMES[period_type]
+
+    result_df = (
+        spark.table(FINAL_VIEW_NAME)
+        .withColumn("period_start", lit(period.start))
+        .withColumn("period_end",   lit(period.end))
+    )
+
+    pre_delete = (
+        f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL "
+        f"DELETE FROM {table_name} "
+        f"WHERE period_start = '{period.start}' AND period_end = '{period.end}'"
+    )
+
+    write_synapse_table(result_df, table_name, pre_delete)
+    print(f"Wrote {period_type.value} report for {period.start} to {period.end}")
+
+
+def save_results_to_delta(
     period_type: PeriodType,
     period: DateRange,
     final_view: str = "customer_segments",

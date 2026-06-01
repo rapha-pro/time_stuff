@@ -147,3 +147,12 @@ def get_previous_period(period_type: PeriodType) -> DateRange:
         return previous_fiscal_year()
     else:
         raise ValueError(f"Unknown period type: {period_type}")
+
+
+
+def getFiscalQuarter(period_start: date) -> str:
+    """Return the fiscal quarter (Q1-Q4) that contains period_start's month."""
+    for quarter, months in FISCAL_QUARTERS.items():
+        if period_start.month in months:
+            return quarter
+    raise ValueError(f"Month {period_start.month} not in any fiscal quarter")

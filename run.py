@@ -17,6 +17,7 @@ from reporting_config   import (
     validate_period_range,
     months_between,
     DateRange,
+    getFiscalQuarter
 )
 from catalog            import (
     QUERIES_CATALOG,
@@ -47,18 +48,19 @@ DELTA_TABLE_NAMES = {
 
 
 
+FISCAL_QUARTERS = {
+    "Q1": [11, 12, 1],   # Nov, Dec, Jan
+    "Q2": [2, 3, 4],     # Feb, Mar, Apr
+    "Q3": [5, 6, 7],     # May, Jun, Jul
+    "Q4": [8, 9, 10],    # Aug, Sep, Oct
+}
+
+
 def get_period_type_from_job() -> PeriodType:
     period_type_str = dbutils.widgets.get("period_type")
     return PeriodType(period_type_str)
 
 
-
-# Map each period type to its delta table name
-DELTA_TABLE_NAMES = {
-    PeriodType.MONTHLY:   "monthly_report",
-    PeriodType.QUARTERLY: "quarterly_report",
-    PeriodType.ANNUAL:    "annual_report",
-}
 
 
 def build_params(query_name: str, dates: DateRange) -> dict:
@@ -157,6 +159,11 @@ def save_results(period_type: PeriodType, period: DateRange) -> None:
         .withColumn("period_end",   lit(period.end))
     )
 
+    # Add fiscal quarter column for monthly and quarterly reports only
+    if period_type in (PeriodType.MONTHLY, PeriodType.QUARTERLY):
+        quarter = get_fiscal_quarter(period.start)
+        result_df = result_df.withColumn("quarter", lit(quarter))
+        
     pre_delete = (
         f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL "
         f"DELETE FROM {table_name} "
